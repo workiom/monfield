@@ -1,0 +1,251 @@
+#!/bin/bash
+
+# NAME: Monfield
+#
+# DESCRIPTION: monfield is a tool for automating the update of a specific
+# field in specific record. The fields to query by and to update are read
+# from a CSV file, and the updates are executed on a remote mongo instance.
+#
+# AUTHOR: Mohammad Matini <mohammad.matini@outlook.com>
+# COPYRIGHT: Workiom Inc. (2020)
+# LICENSE: GPLv3
+#
+
+set -o errexit -o pipefail -o noclobber
+
+cat <<EOF
+
+================================================================
+
+           ┏┳┓┏━┓┏┓╻┏━╸╻┏━╸╻  ╺┳┓   ┏┳┓╻┏━╸┏━┓┏━┓╺┳╸┏━╸
+           ┃┃┃┃ ┃┃┗┫┣╸ ┃┣╸ ┃   ┃┃   ┃┃┃┃┃╺┓┣┳┛┣━┫ ┃ ┣╸ 
+           ╹ ╹┗━┛╹ ╹╹  ╹┗━╸┗━╸╺┻┛   ╹ ╹╹┗━┛╹┗╸╹ ╹ ╹ ┗━╸
+
+                   Mongodb Field Migration Tool
+
+    AUTHOR:     Mohammad Matini <mohammad.matini@outlook.com>
+    MAINTAINER: Mohammad Matini <mohammad.matini@outlook.com>
+    COPYRIGHT:  Workiom Inc. (2020)
+
+================================================================
+
+EOF
+
+function print_usage () {
+    cat <<EOF
+
+    USAGE:
+
+        monfield [REQUIRED-ARGUMENTS] [OPTIONS]
+
+
+    DESCRIPTION:
+
+        monfield is a tool for automating the update of a specific field in
+        specific record. The fields to query by and to update are read from
+        a CSV file, and the updates are executed on a remote mongo instance.
+
+
+    REQUIRED ARGUMENTS:
+
+        --hostname                      URL for the database, as host:port
+        --authentication-database       authentication database
+        --username                      username to authenticate as
+        --database-name                 database in which the migration will run
+        --collection-name               collection in which the migration will run
+        --migration-file                CSV file that contains the field definitions
+
+
+    OPTIONS:
+
+        -h, --help                      print this help message
+        --dryrun                        print the mongo scripting calls instead 
+                                        of executing them
+        --query-value-function          function name to be called on every query
+                                        value, e.g. passing ObjectId will call
+                                        ObjectId("query-value") on query values
+                                        (Not passing this option means that all
+                                        query values are passed literally)
+        --update-value-function         function name to be called on every update
+                                        value e.g. passing ISODate will call 
+                                        ISODate("update-value") on update values
+                                        (Not passing this option means that all
+                                        query values are passed literally)
+
+
+    MIGRATION FILE:
+
+        The migration file is a CSV file which is structured as follows:
+
+            query-field,update-field
+            query-value,update-value
+            query-value,update-value
+            query-value,update-value
+            ...
+
+        For each row containing a [query-value]-[update-value] pair, an
+        update is executed; we find records where [query-field] is
+        [query-value] and set their [update-field] to [update-value].
+
+EOF
+}
+
+function check_arguments () {
+    if [ -z $1 ]; then
+        echo "    ERROR! Missing database hostname! Aborting!"
+        print_usage
+        exit 1
+    fi
+
+    if [ -z $2 ]; then
+        echo "    ERROR! Missing authentication database name! Aborting!"
+        print_usage
+        exit 1
+    fi
+
+    if [ -z $3 ]; then
+        echo "    ERROR! Missing username! Aborting!"
+        print_usage
+        exit 1
+    fi
+
+    if [ -z $4 ]; then
+        echo "    ERROR! Missing database name! Aborting!"
+        print_usage
+        exit 1
+    fi
+
+    if [ -z $5 ]; then
+        echo "    ERROR: Missing collection name! Aborting!"
+        print_usage
+        exit 1
+    fi
+
+    if [ -z $6 ]; then
+        echo "    ERROR: Missing migration file path! Aborting!"
+        print_usage
+        exit 1
+    fi
+
+    if [ ! -r $6 ]; then
+        echo "    ERROR: Migration file does not exist or unreadable! Aborting!"
+        print_usage
+        exit 1
+    fi
+}
+
+function get_database_password () {
+    read -r -p "  Enter database password: " -s password 
+    echo -n $password
+}
+
+function confirm_operation () {
+    echo
+    echo "  !!!! WARNING !!!! THIS OPERATION CAN NOT BE REVERSED"
+    echo
+    read -r -p "  Are you sure you want to continue? [y/n]: " -n 1 -r
+    echo
+    echo
+
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        echo "    Operation cancled. Aborting..."
+        echo
+        exit 0
+    fi
+}
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -h|--help) print_usage; exit 0 ;;
+        --hostname) hostname="$2"; shift; shift ;;
+        --authentication-database) auth_database_name="$2"; shift; shift ;;
+        --username) username="$2"; shift; shift ;;
+        --database-name) database_name="$2"; shift; shift ;;
+        --collection-name) collection_name="$2"; shift; shift ;;
+        --migration-file) migration_file="$2"; shift; shift ;;
+        --query-value-decorator-function) query_value_decorator="$2"; shift; shift ;;
+        --update-value-decorator-function) update_value_decorator="$2"; shift; shift ;;
+        --dryrun) dryrun=1; shift ;;
+        *) echo "Unknown parameter: $1"; print_usage; exit 1 ;;
+    esac
+done
+
+check_arguments $hostname $auth_database_name $username \
+                $database_name $collection_name \
+                $migration_file
+
+if [ -z $dryrun ]; then
+    password=$(get_database_password)
+else
+    password=password-placeholder
+fi
+
+query_field=$(head -n 1 $migration_file | cut -d ',' -f 1 | sed '1s/^\xEF\xBB\xBF//') # remove BOM if it exists
+update_field=$(head -n 1 $migration_file | cut -d ',' -f 2 | sed 's/\r$//') # remove DOS newlines
+
+cat <<EOF
+
+
+    HOSTNAME:        $hostname
+    AUTH DATABASE:   $auth_database_name
+    USERNAME:        $username
+
+    DATABASE NAME:   $database_name
+    COLLECTION NAME: $collection_name
+    MIGRATION FILE:  $migration_file
+
+    QUERY FIELD:    $query_field
+    UPDATE FIELD:   $update_field
+
+EOF
+
+if [ ! -z $query_value_decorator ]; then
+    echo "    Query Value Decorator:   $query_value_decorator"
+fi
+
+if [ ! -z $update_value_decorator ]; then
+    echo "    Update Value Decorator:  $update_value_decorator"
+fi
+
+echo
+echo
+
+if [ -z $dryrun ]; then
+    confirm_operation
+fi
+
+rows=$(tail -n +2 $migration_file | sed 's/\r$//') # remove DOS newlines
+
+while read -r row; do
+    query_value=$(echo $row | cut -d ',' -f 1)
+    update_value=$(echo $row | cut -d ',' -f 2)
+
+    echo
+    echo ================================================================
+    echo
+
+    command="
+mongo -u $username -p $password \
+$hostname/$database_name \
+--authenticationDatabase $auth_database_name \
+--eval '
+db.getCollection(\"$collection_name\").update(
+    { \"$query_field\": { \$eq: $query_value_decorator(\"$query_value\") } },
+    { \$set: { \"$update_field\": $update_value_decorator(\"$update_value\") } },
+    { multi: true }
+); 
+
+db.getCollection(\"3050f01c-423a-46fa-3e7c-08d7b581bd17\").find(
+    { \"$query_field\": { \$eq: $query_value_decorator(\"$query_value\") } }
+);
+'"
+
+    if [ -z $dryrun ];
+    then eval "$command"
+    else echo "$command"
+    fi
+
+done <<< "$rows"
+
+echo ================================================================
+echo
