@@ -134,6 +134,11 @@ normal text field, and does not require a call to ObjectId(). We still
 specify the ISODate update-value-constructor because our update values in
 the second column are date values.
 
+## Limitations
+The script only has very simple CSV handling. It can not handle quoted
+values with commas in them for example. If the script found more than one
+comma per-line, it will abort with an error.
+
 ## License
 Copyright (C) 2020 Workiom Inc.
 

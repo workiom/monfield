@@ -219,6 +219,16 @@ fi
 rows=$(tail -n +2 $migration_file | sed 's/\r$//') # remove DOS newlines
 
 while read -r row; do
+    number_of_commas=$(echo $row | tr -d -c ',' | awk '{ print length; }')
+    if [ ! "$number_of_commas" -eq "1" ]; then
+        echo "    ERROR: Wrong number of commans! in row: $row"
+        echo "    monfield can only handle one comma per-line"
+        echo "    it cannot handle escaped commans in CSV files"
+        exit 1
+    fi
+done <<< "$rows"
+
+while read -r row; do
     query_value=$(echo $row | cut -d ',' -f 1)
     update_value=$(echo $row | cut -d ',' -f 2)
 
