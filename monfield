@@ -18,7 +18,7 @@ cat <<EOF
 ================================================================
 
            ┏┳┓┏━┓┏┓╻┏━╸╻┏━╸╻  ╺┳┓   ┏┳┓╻┏━╸┏━┓┏━┓╺┳╸┏━╸
-           ┃┃┃┃ ┃┃┗┫┣╸ ┃┣╸ ┃   ┃┃   ┃┃┃┃┃╺┓┣┳┛┣━┫ ┃ ┣╸ 
+           ┃┃┃┃ ┃┃┗┫┣╸ ┃┣╸ ┃   ┃┃   ┃┃┃┃┃╺┓┣┳┛┣━┫ ┃ ┣╸
            ╹ ╹┗━┛╹ ╹╹  ╹┗━╸┗━╸╺┻┛   ╹ ╹╹┗━┛╹┗╸╹ ╹ ╹ ┗━╸
 
                    Mongodb Field Migration Tool
@@ -59,18 +59,20 @@ function print_usage () {
     OPTIONS:
 
         -h, --help                      print this help message
-        --dryrun                        print the mongo scripting calls instead 
+        --dryrun                        print the mongo scripting calls instead
                                         of executing them
-        --query-value-function          function name to be called on every query
-                                        value, e.g. passing ObjectId will call
-                                        ObjectId("query-value") on query values
-                                        (Not passing this option means that all
-                                        query values are passed literally)
-        --update-value-function         function name to be called on every update
-                                        value e.g. passing ISODate will call 
-                                        ISODate("update-value") on update values
-                                        (Not passing this option means that all
-                                        query values are passed literally)
+        --query-value-constructor       constructor name to be called on every
+                                        query value, e.g. passing ObjectId will
+                                        call ObjectId("query-value") on query
+                                        values (Not passing this option means
+                                        that all query values are passed
+                                        literally)
+        --update-value-constructor      constructor name to be called on every
+                                        update value e.g. passing ISODate will
+                                        call ISODate("update-value") on update
+                                        values (Not passing this option means
+                                        that all query values are passed
+                                        literally)
 
 
     MIGRATION FILE:
@@ -135,7 +137,7 @@ function check_arguments () {
 }
 
 function get_database_password () {
-    read -r -p "  Enter database password: " -s password 
+    read -r -p "  Enter database password: " -s password
     echo -n $password
 }
 
@@ -163,8 +165,8 @@ while [[ $# -gt 0 ]]; do
         --database-name) database_name="$2"; shift; shift ;;
         --collection-name) collection_name="$2"; shift; shift ;;
         --migration-file) migration_file="$2"; shift; shift ;;
-        --query-value-decorator-function) query_value_decorator="$2"; shift; shift ;;
-        --update-value-decorator-function) update_value_decorator="$2"; shift; shift ;;
+        --query-value-constructor) query_value_constructor="$2"; shift; shift ;;
+        --update-value-constructor) update_value_constructor="$2"; shift; shift ;;
         --dryrun) dryrun=1; shift ;;
         *) echo "Unknown parameter: $1"; print_usage; exit 1 ;;
     esac
@@ -199,12 +201,12 @@ cat <<EOF
 
 EOF
 
-if [ ! -z $query_value_decorator ]; then
-    echo "    Query Value Decorator:   $query_value_decorator"
+if [ ! -z $query_value_constructor ]; then
+    echo "    Query Value Constructor:   $query_value_constructor"
 fi
 
-if [ ! -z $update_value_decorator ]; then
-    echo "    Update Value Decorator:  $update_value_decorator"
+if [ ! -z $update_value_constructor ]; then
+    echo "    Update Value Constructor:  $update_value_constructor"
 fi
 
 echo
@@ -230,13 +232,13 @@ $hostname/$database_name \
 --authenticationDatabase $auth_database_name \
 --eval '
 db.getCollection(\"$collection_name\").update(
-    { \"$query_field\": { \$eq: $query_value_decorator(\"$query_value\") } },
-    { \$set: { \"$update_field\": $update_value_decorator(\"$update_value\") } },
+    { \"$query_field\": { \$eq: $query_value_constructor(\"$query_value\") } },
+    { \$set: { \"$update_field\": $update_value_constructor(\"$update_value\") } },
     { multi: true }
-); 
+);
 
 db.getCollection(\"3050f01c-423a-46fa-3e7c-08d7b581bd17\").find(
-    { \"$query_field\": { \$eq: $query_value_decorator(\"$query_value\") } }
+    { \"$query_field\": { \$eq: $query_value_constructor(\"$query_value\") } }
 );
 '"
 

@@ -4,7 +4,7 @@
 ================================================================
 
            ┏┳┓┏━┓┏┓╻┏━╸╻┏━╸╻  ╺┳┓   ┏┳┓╻┏━╸┏━┓┏━┓╺┳╸┏━╸
-           ┃┃┃┃ ┃┃┗┫┣╸ ┃┣╸ ┃   ┃┃   ┃┃┃┃┃╺┓┣┳┛┣━┫ ┃ ┣╸ 
+           ┃┃┃┃ ┃┃┗┫┣╸ ┃┣╸ ┃   ┃┃   ┃┃┃┃┃╺┓┣┳┛┣━┫ ┃ ┣╸
            ╹ ╹┗━┛╹ ╹╹  ╹┗━╸┗━╸╺┻┛   ╹ ╹╹┗━┛╹┗╸╹ ╹ ╹ ┗━╸
 
                    Mongodb Field Migration Tool
@@ -52,18 +52,20 @@ REQUIRED ARGUMENTS:
 OPTIONS:
 
     -h, --help                      print this help message
-    --dryrun                        print the mongo scripting calls instead 
+    --dryrun                        print the mongo scripting calls instead
                                     of executing them
-    --query-value-function          function name to be called on every query
-                                    value, e.g. passing ObjectId will call
-                                    ObjectId("query-value") on query values
-                                    (Not passing this option means that all
-                                    query values are passed literally)
-    --update-value-function         function name to be called on every update
-                                    value e.g. passing ISODate will call 
-                                    ISODate("update-value") on update values
-                                    (Not passing this option means that all
-                                    query values are passed literally)
+    --query-value-constructor       constructor name to be called on every
+                                    query value, e.g. passing ObjectId will
+                                    call ObjectId("query-value") on query
+                                    values (Not passing this option means
+                                    that all query values are passed
+                                    literally)
+    --update-value-constructor      constructor name to be called on every
+                                    update value e.g. passing ISODate will
+                                    call ISODate("update-value") on update
+                                    values (Not passing this option means
+                                    that all query values are passed
+                                    literally)
 
 
 MIGRATION FILE:
@@ -101,7 +103,7 @@ _id,156231
 To execute this migration call monfield like:
 
 ```sh
-monfield --hostname localhost:27017 --authentication-database authdb --username admin --database-name 121 --collection-name b0a1f011-423a-46fa-3e7c-0u27b581b917 --migration-file ./updates.csv --query-value-decorator-function ObjectId --update-value-decorator-function ISODate
+monfield --hostname localhost:27017 --authentication-database authdb --username admin --database-name 121 --collection-name b0a1f011-423a-46fa-3e7c-0u27b581b917 --migration-file ./updates.csv --query-value-constructor ObjectId --update-value-constructor ISODate
 ```
 
 ### Update a Date Field in Records by a Text Field
@@ -123,14 +125,14 @@ Hell March 2,2010-02-01T01:01:12Z
 To execute this migration call monfield like:
 
 ```sh
-monfield --hostname localhost:27017 --authentication-database authdb --username admin --database-name 121 --collection-name b0a1f011-423a-46fa-3e7c-0u27b581b917 --migration-file ./updates.csv --update-value-decorator-function ISODate
+monfield --hostname localhost:27017 --authentication-database authdb --username admin --database-name 121 --collection-name b0a1f011-423a-46fa-3e7c-0u27b581b917 --migration-file ./updates.csv --update-value-constructor ISODate
 ```
 
 Note that unlike in the previous example, we don't specify the ObjectId
-query-value-decorator-function. This is because the first field this time is
-a normal text field, and does not require a call to ObjectId(). We still
-specify the ISODate update-value-decorator-function because our update
-values in the second column are date values.
+query-value-constructor. This is because the first field this time is a
+normal text field, and does not require a call to ObjectId(). We still
+specify the ISODate update-value-constructor because our update values in
+the second column are date values.
 
 ## License
 Copyright (C) 2020 Workiom Inc.
