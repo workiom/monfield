@@ -237,7 +237,7 @@ db.getCollection(\"$collection_name\").update(
     { multi: true }
 );
 
-db.getCollection(\"3050f01c-423a-46fa-3e7c-08d7b581bd17\").find(
+db.getCollection(\"$collection_name\").find(
     { \"$query_field\": { \$eq: $query_value_constructor(\"$query_value\") } }
 );
 '"
