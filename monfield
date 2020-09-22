@@ -43,7 +43,8 @@ function print_usage () {
 
         monfield is a tool for automating the update of a specific field in
         specific record. The fields to query by and to update are read from
-        a CSV file, and the updates are executed on a remote mongo instance.
+        a CSV file, and the updates are generated into a JavaScript script
+        file, and then are executed on a remote mongo instance.
 
 
     REQUIRED ARGUMENTS:
@@ -54,6 +55,9 @@ function print_usage () {
         --database-name                 database in which the migration will run
         --collection-name               collection in which the migration will run
         --migration-file                CSV file that contains the field definitions
+        --output-js-script              path where the JS batch script will be
+                                        created. This script will be executed at
+                                        the end if --dryrun was not supplied
 
 
     OPTIONS:
@@ -134,6 +138,29 @@ function check_arguments () {
         print_usage
         exit 1
     fi
+
+    if [ -z "$7" ]; then
+        echo "    ERROR: Missing output JS script path! Aborting!"
+        print_usage
+        exit 1
+    fi
+
+    if [ -e "$7" ]; then
+        echo
+        echo "  Warning: file ($output_js_script) already exists."
+        read -r -p "  are you sure you want to over-write it? [y/n]: " -n 1 -r
+        echo
+        if [[ ! "$REPLY" =~ ^[Yy]$ ]]; then
+            echo "    Operation cancled. Aborting..."
+            echo
+            exit 0
+        fi
+
+        set +o noclobber
+        echo "" > "$output_js_script" # reset the file
+        set -o noclobber
+
+    fi
 }
 
 function get_database_password () {
@@ -167,6 +194,7 @@ while [[ $# -gt 0 ]]; do
         --migration-file) migration_file="$2"; shift; shift ;;
         --query-value-constructor) query_value_constructor="$2"; shift; shift ;;
         --update-value-constructor) update_value_constructor="$2"; shift; shift ;;
+        --output-js-script) output_js_script="$2"; shift; shift ;;
         --dryrun) dryrun=1; shift ;;
         *) echo "Unknown parameter: $1"; print_usage; exit 1 ;;
     esac
@@ -174,7 +202,7 @@ done
 
 check_arguments "$hostname" "$auth_database_name" "$username" \
                 "$database_name" "$collection_name" \
-                "$migration_file"
+                "$migration_file" "$output_js_script"
 
 if [ -z $dryrun ]; then
     password=$(get_database_password)
@@ -232,30 +260,35 @@ while read -r row; do
     query_value=$(echo "$row" | cut -d ',' -f 1)
     update_value=$(echo "$row" | cut -d ',' -f 2)
 
-    command="
-mongo -u $username -p $password \
-$hostname/$database_name \
---authenticationDatabase $auth_database_name \
---eval '
-db.getCollection(\"$collection_name\").update(
+    command="db.getCollection(\"$collection_name\").update(
     { \"$query_field\": { \$eq: $query_value_constructor(\"$query_value\") } },
     { \$set: { \"$update_field\": $update_value_constructor(\"$update_value\") } },
     { multi: true }
 );
-'"
+"
 
     ((number_of_processed_rows=number_of_processed_rows+1))
-    echo
-    echo ================================================================
-    echo -en "\r    Currently Updating: $number_of_processed_rows/$total_number_of_rows rows"
-    echo
 
-    if [ -z $dryrun ];
-    then eval "$command"
-    else echo "$command"
-    fi
+    echo -en "\r    Currently Generating: $number_of_processed_rows/$total_number_of_rows rows"
+    echo "$command" >> "$output_js_script"
 
 done <<< "$rows"
 
+echo
+echo
 echo ================================================================
+echo
+
+command="
+mongo -u $username -p $password $hostname/$database_name \
+--authenticationDatabase $auth_database_name \
+--eval 'load(\"$output_js_script\")'
+"
+
+if [ -z $dryrun ]; then
+    eval "$command"
+fi
+
+echo
+echo "done."
 echo
