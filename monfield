@@ -249,7 +249,7 @@ total_number_of_rows=$(echo "$rows" | wc -l)
 number_of_processed_rows=0
 
 while read -r row; do
-    number_of_commas=$(echo $row | tr -d -c ',' | awk '{ print length; }')
+    number_of_commas=$(echo $row | tr -d -c ',' | wc -c)
     if [ ! "$number_of_commas" -eq "1" ]; then
         echo "    ERROR: Wrong number of commans! in row: $row"
         echo "    monfield can only handle one comma per-line"
