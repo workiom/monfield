@@ -217,6 +217,8 @@ if [ -z $dryrun ]; then
 fi
 
 rows=$(tail -n +2 "$migration_file" | sed 's/\r$//') # remove DOS newlines
+total_number_of_rows=$(echo "$rows" | wc -l)
+number_of_processed_rows=0
 
 while read -r row; do
     number_of_commas=$(echo $row | tr -d -c ',' | awk '{ print length; }')
@@ -226,15 +228,9 @@ while read -r row; do
         echo "    it cannot handle escaped commans in CSV files"
         exit 1
     fi
-done <<< "$rows"
 
-while read -r row; do
     query_value=$(echo "$row" | cut -d ',' -f 1)
     update_value=$(echo "$row" | cut -d ',' -f 2)
-
-    echo
-    echo ================================================================
-    echo
 
     command="
 mongo -u $username -p $password \
@@ -246,11 +242,13 @@ db.getCollection(\"$collection_name\").update(
     { \$set: { \"$update_field\": $update_value_constructor(\"$update_value\") } },
     { multi: true }
 );
-
-db.getCollection(\"$collection_name\").find(
-    { \"$query_field\": { \$eq: $query_value_constructor(\"$query_value\") } }
-);
 '"
+
+    ((number_of_processed_rows=number_of_processed_rows+1))
+    echo
+    echo ================================================================
+    echo -en "\r    Currently Updating: $number_of_processed_rows/$total_number_of_rows rows"
+    echo
 
     if [ -z $dryrun ];
     then eval "$command"
