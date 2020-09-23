@@ -18,7 +18,8 @@
 
 Monfield is a tool for automating the update of a specific field in specific
 record. The fields to query by and to update are read from a CSV file, and
-the updates are executed on a remote mongo instance.
+the updates are chunked into a number of JavaScript files, and then are
+executed on a remote mongo instance.
 
 ## Dependencies
 Monfield requires the presence of the MongoDB CLI Client to execute database
@@ -110,7 +111,7 @@ _id,156231
 To execute this migration call monfield like:
 
 ```sh
-monfield --hostname localhost:27017 --authentication-database authdb --username admin --database-name 121 --collection-name b0a1f011-423a-46fa-3e7c-0u27b581b917 --migration-file ./updates.csv --output-js-script ./migration.js --query-value-constructor ObjectId --update-value-constructor ISODate
+monfield --hostname localhost:27017 --authentication-database authdb --username admin --database-name 121 --collection-name b0a1f011-423a-46fa-3e7c-0u27b581b917 --migration-file ./updates.csv --output-js-folder ./migration --query-value-constructor ObjectId --update-value-constructor ISODate
 ```
 
 ### Update a Date Field in Records by a Text Field
@@ -132,7 +133,7 @@ Hell March 2,2010-02-01T01:01:12Z
 To execute this migration call monfield like:
 
 ```sh
-monfield --hostname localhost:27017 --authentication-database authdb --username admin --database-name 121 --collection-name b0a1f011-423a-46fa-3e7c-0u27b581b917 --migration-file ./updates.csv --output-js-script ./migration.js --update-value-constructor ISODate
+monfield --hostname localhost:27017 --authentication-database authdb --username admin --database-name 121 --collection-name b0a1f011-423a-46fa-3e7c-0u27b581b917 --migration-file ./updates.csv --output-js-folder ./migration --update-value-constructor ISODate
 ```
 
 Note that unlike in the previous example, we don't specify the ObjectId
@@ -144,7 +145,7 @@ the second column are date values.
 ## Limitations
 The script only has very simple CSV handling. It can not handle quoted
 values with commas in them for example. If the script found more than one
-comma per-line, it will abort with an error.
+comma per-line in some record, it will abort with an error.
 
 ## License
 Copyright (C) 2020 Workiom Inc.
