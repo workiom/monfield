@@ -286,9 +286,10 @@ for (( file_number=0; file_number<=$number_of_batch_files; file_number++ )); do
 	echo "]" >> $file_name
 	echo "$update_loop" >> $file_name
 
-	command="mongo -u $username -p $password $hostname/$database_name \
-		--authenticationDatabase $auth_database_name \
-		--eval 'load(\"$file_name\")'"
+	command="
+mongo -u $username -p $password $hostname/$database_name \
+--authenticationDatabase $auth_database_name \
+--eval 'load(\"$file_name\")'"
 
 	echo ================================================================
 	echo
