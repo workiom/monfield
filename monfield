@@ -4,7 +4,8 @@
 #
 # DESCRIPTION: monfield is a tool for automating the update of a specific
 # field in specific record. The fields to query by and to update are read
-# from a CSV file, and the updates are executed on a remote mongo instance.
+# from a CSV file, and the updates are chunked into a number of JavaScript
+# files, and then are executed on a remote mongo instance.
 #
 # AUTHOR: Mohammad Matini <mohammad.matini@outlook.com>
 # COPYRIGHT: Workiom Inc. (2020)
