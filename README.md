@@ -36,8 +36,8 @@ DESCRIPTION:
 
     monfield is a tool for automating the update of a specific field in
     specific record. The fields to query by and to update are read from
-    a CSV file, and the updates are generated into a JavaScript script
-    file, and then are executed on a remote mongo instance.
+    a CSV file, and the updates are chunked into a number of JavaScript
+    files, and then are executed on a remote mongo instance.
 
 
 REQUIRED ARGUMENTS:
@@ -48,9 +48,12 @@ REQUIRED ARGUMENTS:
     --database-name                 database in which the migration will run
     --collection-name               collection in which the migration will run
     --migration-file                CSV file that contains the field definitions
-    --output-js-script              path where the JS batch script will be
-                                    created. This script will be executed at
-                                    the end if --dryrun was not supplied
+
+    --output-js-folder              path where the JS batch scripts will be
+                                    created. The scripts will be executed at
+                                    the end if --dryrun was not supplied.
+                                    The folder must not exist, as it will be
+                                    created by this script.
 
 
 OPTIONS:

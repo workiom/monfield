@@ -43,8 +43,8 @@ function print_usage () {
 
         monfield is a tool for automating the update of a specific field in
         specific record. The fields to query by and to update are read from
-        a CSV file, and the updates are generated into a JavaScript script
-        file, and then are executed on a remote mongo instance.
+        a CSV file, and the updates are chunked into a number of JavaScript
+        files, and then are executed on a remote mongo instance.
 
 
     REQUIRED ARGUMENTS:
@@ -55,9 +55,11 @@ function print_usage () {
         --database-name                 database in which the migration will run
         --collection-name               collection in which the migration will run
         --migration-file                CSV file that contains the field definitions
-        --output-js-script              path where the JS batch script will be
-                                        created. This script will be executed at
-                                        the end if --dryrun was not supplied
+        --output-js-folder              path where the JS batch scripts will be
+                                        created. The scripts will be executed at
+                                        the end if --dryrun was not supplied.
+                                        The folder must not exist, as it will be
+                                        created by this script.
 
 
     OPTIONS:
@@ -95,6 +97,8 @@ function print_usage () {
 
 EOF
 }
+
+MAX_UPDATES_PER_BATCH=1000
 
 function check_arguments () {
     if [ -z "$1" ]; then
@@ -140,26 +144,17 @@ function check_arguments () {
     fi
 
     if [ -z "$7" ]; then
-        echo "    ERROR: Missing output JS script path! Aborting!"
+        echo "    ERROR: Missing output JS folder path! Aborting!"
         print_usage
         exit 1
     fi
 
-    if [ -e "$7" ]; then
+    if [ -d "$7" ]; then
         echo
-        echo "  Warning: file ($output_js_script) already exists."
-        read -r -p "  are you sure you want to over-write it? [y/n]: " -n 1 -r
-        echo
-        if [[ ! "$REPLY" =~ ^[Yy]$ ]]; then
-            echo "    Operation cancled. Aborting..."
-            echo
-            exit 0
-        fi
-
-        set +o noclobber
-        echo "" > "$output_js_script" # reset the file
-        set -o noclobber
-
+        echo "  ERROR: folder ($output_js_folder) already exists."
+        echo "  Please delete the folder, or specify a new path."
+        print_usage
+        exit 1
     fi
 }
 
@@ -194,7 +189,7 @@ while [[ $# -gt 0 ]]; do
         --migration-file) migration_file="$2"; shift; shift ;;
         --query-value-constructor) query_value_constructor="$2"; shift; shift ;;
         --update-value-constructor) update_value_constructor="$2"; shift; shift ;;
-        --output-js-script) output_js_script="$2"; shift; shift ;;
+        --output-js-folder) output_js_folder="$2"; shift; shift ;;
         --dryrun) dryrun=1; shift ;;
         *) echo "Unknown parameter: $1"; print_usage; exit 1 ;;
     esac
@@ -202,7 +197,7 @@ done
 
 check_arguments "$hostname" "$auth_database_name" "$username" \
                 "$database_name" "$collection_name" \
-                "$migration_file" "$output_js_script"
+                "$migration_file" "$output_js_folder"
 
 if [ -z $dryrun ]; then
     password=$(get_database_password)
@@ -244,6 +239,8 @@ if [ -z $dryrun ]; then
     confirm_operation
 fi
 
+mkdir -p $output_js_folder
+
 rows=$(tail -n +2 "$migration_file" | sed 's/\r$//') # remove DOS newlines
 total_number_of_rows=$(echo "$rows" | wc -l)
 number_of_processed_rows=0
@@ -257,38 +254,54 @@ while read -r row; do
         exit 1
     fi
 
-    query_value=$(echo "$row" | cut -d ',' -f 1)
-    update_value=$(echo "$row" | cut -d ',' -f 2)
+    ((number_of_processed_rows=number_of_processed_rows + 1))
+    number_of_batch_files=$(($number_of_processed_rows / $MAX_UPDATES_PER_BATCH))
 
-    command="db.getCollection(\"$collection_name\").update(
-    { \"$query_field\": { \$eq: $query_value_constructor(\"$query_value\") } },
-    { \$set: { \"$update_field\": $update_value_constructor(\"$update_value\") } },
-    { multi: true }
-);
-"
+    echo -en "\r    Currently Generating: $number_of_processed_rows/$total_number_of_rows rows \
+(batch file no. $number_of_batch_files)"
 
-    ((number_of_processed_rows=number_of_processed_rows+1))
-
-    echo -en "\r    Currently Generating: $number_of_processed_rows/$total_number_of_rows rows"
-    echo "$command" >> "$output_js_script"
+    # use sed to change the CSV row to a JS array
+    echo $row | sed "s/^/[\"/;s/,/\"],[\"/;s/$/\"],/" >> "$output_js_folder/$number_of_batch_files.js"
 
 done <<< "$rows"
 
 echo
 echo
+
+update_loop="
+let collection = db.getCollection(\"$collection_name\")
+for (let i = 0; i < data.length; i++) {
+    collection.update(
+        { \"$query_field\": { \$eq: $query_value_constructor(data[i][1]) } },
+        { \$set: { \"$update_field\": $update_value_constructor(data[i][2]) } },
+        { multi: true }
+    );
+}"
+
+for (( file_number=0; file_number<=$number_of_batch_files; file_number++ )); do
+	file_name="$output_js_folder/$file_number.js"
+
+	# define data array and add the update loop to batch files
+	sed -i '1s;^;let data = [\n;' $file_name
+	echo "]" >> $file_name
+	echo "$update_loop" >> $file_name
+
+	command="mongo -u $username -p $password $hostname/$database_name \
+		--authenticationDatabase $auth_database_name \
+		--eval 'load(\"$file_name\")'"
+
+	echo ================================================================
+	echo
+	echo "    Executing Batch: $file_number/$number_of_batch_files"
+	echo
+	if [ -z $dryrun ]; then
+            eval "$command"
+	fi
+	echo
+done
+
+echo
 echo ================================================================
 echo
-
-command="
-mongo -u $username -p $password $hostname/$database_name \
---authenticationDatabase $auth_database_name \
---eval 'load(\"$output_js_script\")'
-"
-
-if [ -z $dryrun ]; then
-    eval "$command"
-fi
-
-echo
-echo "done."
+echo "    Yay! Success!"
 echo
