@@ -294,10 +294,11 @@ for (( file_number=0; file_number<=$number_of_batch_files; file_number++ )); do
 	echo
 	echo "    Executing Batch: $file_number/$number_of_batch_files"
 	echo
-	if [ -z $dryrun ]; then
-            eval "$command"
-	fi
-	echo
+        if [ -z $dryrun ];
+        then eval "$command"
+        else echo "$command"
+        fi
+        echo
 done
 
 echo
