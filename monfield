@@ -13,6 +13,7 @@
 #
 
 set -o errexit -o pipefail -o noclobber
+shopt -s inherit_errexit
 
 cat <<EOF
 
