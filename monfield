@@ -263,7 +263,7 @@ while read -r row; do
 (batch file no. $number_of_batch_files)"
 
     # use sed to change the CSV row to a JS array
-    echo $row | sed "s/^/[\"/;s/,/\"],[\"/;s/$/\"],/" >> "$output_js_folder/$number_of_batch_files.js"
+    echo $row | sed "s/^/[\"/;s/,/\",\"/;s/$/\"],/" >> "$output_js_folder/$number_of_batch_files.js"
 
 done <<< "$rows"
 
@@ -274,8 +274,8 @@ update_loop="
 let collection = db.getCollection(\"$collection_name\")
 for (let i = 0; i < data.length; i++) {
     collection.update(
-        { \"$query_field\": { \$eq: $query_value_constructor(data[i][1]) } },
-        { \$set: { \"$update_field\": $update_value_constructor(data[i][2]) } },
+        { \"$query_field\": { \$eq: $query_value_constructor(data[i][0]) } },
+        { \$set: { \"$update_field\": $update_value_constructor(data[i][1]) } },
         { multi: true }
     );
 }"
