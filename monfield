@@ -183,13 +183,14 @@ function check_requirements () {
          [ -x "$(command -v csvcut)" ] || echo csvcut;
          [ -x "$(command -v csvsql)" ] || echo csvsql;
          [ -x "$(command -v csvjson)" ] || echo csvjson;
+         [ -x "$(command -v mongo)" ] || echo mongo;
      } | tr '\n' ' ' )
 
     if [ -n "$missing_command" ]; then
         echo
         echo "    ERROR: Missing required executables: $missing_command"
-        echo "           Please make sure you have csvkit"
-        echo "           installed correctly."
+        echo "           Please make sure you have csvkit and"
+        echo "           mongo shell installed correctly."
         echo
         exit 1
     fi
