@@ -257,7 +257,6 @@ if [ ! -z $update_value_constructor ]; then
 fi
 
 echo
-echo
 
 if [ -z $dryrun ]; then
     confirm_operation
