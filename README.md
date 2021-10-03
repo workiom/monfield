@@ -19,12 +19,17 @@
 Monfield is a tool for automating the update of a specific field in specific
 record. The fields to query by and to update are read from a CSV file, and
 the updates are written to a JavaScript file, that gets executed on a remote
-mongo instance. Monfield requires csvkit.
+mongo instance.
 
 ## Dependencies
-Monfield requires the presence of the MongoDB CLI Client to execute database
-update operations. Please make sure that your mongo client version is in
-sync with your database server version.
+Monfield requires the presence of the MongoDB CLI Client `mongo` to execute
+database update operations. Please make sure that your mongo client version
+matches your database server version. Monfield was tested with versions
+`3.6` and `4.0` of the `mongo` shell and database.
+
+Additionally, it requires `csvkit` to handle CSV files, specifically the
+`csvcut`, `csvsql`, and `csvjson` utilities. It was tested on Debian with
+the `csvkit-1.0.2-1` package.
 
 ## Usage
 ```
