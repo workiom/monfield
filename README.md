@@ -18,8 +18,8 @@
 
 Monfield is a tool for automating the update of a specific field in specific
 record. The fields to query by and to update are read from a CSV file, and
-the updates are chunked into a number of JavaScript files, and then are
-executed on a remote mongo instance.
+the updates are written to a JavaScript file, that gets executed on a remote
+mongo instance. Monfield requires csvkit.
 
 ## Dependencies
 Monfield requires the presence of the MongoDB CLI Client to execute database
@@ -141,11 +141,6 @@ query-value-constructor. This is because the first field this time is a
 normal text field, and does not require a call to ObjectId(). We still
 specify the ISODate update-value-constructor because our update values in
 the second column are date values.
-
-## Limitations
-The script only has very simple CSV handling. It can not handle quoted
-values with commas in them for example. If the script found more than one
-comma per-line in some record, it will abort with an error.
 
 ## License
 Copyright (C) 2020 Workiom Inc.

@@ -4,8 +4,8 @@
 #
 # DESCRIPTION: monfield is a tool for automating the update of a specific
 # field in specific record. The fields to query by and to update are read
-# from a CSV file, and the updates are chunked into a number of JavaScript
-# files, and then are executed on a remote mongo instance.
+# from a CSV file, and the updates are written to a JavaScript file, that
+# gets executed on a remote mongo instance. monfield requires csvkit.
 #
 # AUTHOR: Mohammad Matini <mohammad.matini@outlook.com>
 # COPYRIGHT: Workiom Inc. (2020)
@@ -45,8 +45,8 @@ function print_usage () {
 
         monfield is a tool for automating the update of a specific field in
         specific record. The fields to query by and to update are read from
-        a CSV file, and the updates are chunked into a number of JavaScript
-        files, and then are executed on a remote mongo instance.
+        a CSV file, and the updates are written to a JavaScript file, that
+        gets executed on a remote mongo instance. monfield requires csvkit.
 
 
     REQUIRED ARGUMENTS:
@@ -99,8 +99,6 @@ function print_usage () {
 
 EOF
 }
-
-MAX_UPDATES_PER_BATCH=1000
 
 function check_arguments () {
     if [ -z "$1" ]; then
@@ -207,8 +205,14 @@ else
     password=password-placeholder
 fi
 
-query_field=$(head -n 1 "$migration_file" | cut -d ',' -f 1 | sed '1s/^\xEF\xBB\xBF//;s/\s*$//;s/^\s*//') # remove BOM if it exists and trim whitepsace
-update_field=$(head -n 1 "$migration_file" | cut -d ',' -f 2 | sed 's/\r$//;s/\s*$//;s/^\s*//') # remove DOS newlines and trim whitespace
+# It's okay to use | head | here to make parsing faster because mongo keys
+# can never be multi-line in the first place. If the header of the CSV file
+# has multiple lines, then it's already not supported on mongo's side. We
+# also have to temporarily disable pipefail when using head.
+set +o pipefail
+query_field=$(csvcut -c 1 "$migration_file" | head | csvsql --query "select * from stdin limit 0;")
+update_field=$(csvcut -c 2 "$migration_file" | head | csvsql --query "select * from stdin limit 0;")
+set -o pipefail
 
 cat <<EOF
 
@@ -241,68 +245,43 @@ if [ -z $dryrun ]; then
     confirm_operation
 fi
 
-mkdir -p $output_js_folder
+mkdir -p "$output_js_folder"
 
-rows=$(tail -n +2 "$migration_file" | sed 's/\r$//') # remove DOS newlines
-total_number_of_rows=$(echo "$rows" | wc -l)
-number_of_processed_rows=0
-
-while read -r row; do
-    number_of_commas=$(echo $row | tr -d -c ',' | wc -c)
-    if [ ! "$number_of_commas" -eq "1" ]; then
-        echo "    ERROR: Wrong number of commans! in row: $row"
-        echo "    monfield can only handle one comma per-line"
-        echo "    it cannot handle escaped commans in CSV files"
-        exit 1
-    fi
-
-    ((number_of_processed_rows=number_of_processed_rows + 1))
-    number_of_batch_files=$(($number_of_processed_rows / $MAX_UPDATES_PER_BATCH))
-
-    echo -en "\r    Currently Generating: $number_of_processed_rows/$total_number_of_rows rows \
-(batch file no. $number_of_batch_files)"
-
-    # use sed to change the CSV row to a JS array
-    echo $row | sed "s/^/[\"/;s/,/\",\"/;s/$/\"],/" >> "$output_js_folder/$number_of_batch_files.js"
-
-done <<< "$rows"
+csvjson --snifflimit 0 --delimiter ',' --quotechar '"' "$migration_file" >> "$output_js_folder/batch.js"
 
 echo
 echo
 
 update_loop="
 let collection = db.getCollection(\"$collection_name\")
+
 for (let i = 0; i < data.length; i++) {
-    collection.update(
-        { \"$query_field\": { \$eq: $query_value_constructor(data[i][0]) } },
-        { \$set: { \"$update_field\": $update_value_constructor(data[i][1]) } },
+
+    let update = collection.update(
+        { '$query_field': { \$eq: $query_value_constructor(data[i]['$query_field']) } },
+        { \$set: { '$update_field': $update_value_constructor(data[i]['$update_field']) } },
         { multi: true }
     );
+
 }"
 
-for (( file_number=0; file_number<=$number_of_batch_files; file_number++ )); do
-	file_name="$output_js_folder/$file_number.js"
+sed -i '1s;^;let data = ;' "$output_js_folder/batch.js"
+echo "$update_loop" >> "$output_js_folder/batch.js"
 
-	# define data array and add the update loop to batch files
-	sed -i '1s;^;let data = [\n;' $file_name
-	echo "]" >> $file_name
-	echo "$update_loop" >> $file_name
-
-	command="
+command="
 mongo -u $username -p $password $hostname/$database_name \
 --authenticationDatabase $auth_database_name \
---eval 'load(\"$file_name\")'"
+--eval 'load(\"$output_js_folder/batch.js\")'"
 
-	echo ================================================================
-	echo
-	echo "    Executing Batch: $file_number/$number_of_batch_files"
-	echo
-        if [ -z $dryrun ];
-        then eval "$command"
-        else echo "$command"
-        fi
-        echo
-done
+echo ================================================================
+echo
+echo "    Executing Batch File: $output_js_folder/batch.js"
+echo
+if [ -z $dryrun ];
+then eval "$command"
+else echo "$command"
+fi
+echo
 
 echo
 echo ================================================================
