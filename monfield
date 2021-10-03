@@ -178,6 +178,23 @@ function confirm_operation () {
     fi
 }
 
+function check_requirements () {
+    missing_command=$({
+         [ -x "$(command -v csvcut)" ] || echo csvcut;
+         [ -x "$(command -v csvsql)" ] || echo csvsql;
+         [ -x "$(command -v csvjson)" ] || echo csvjson;
+     } | tr '\n' ' ' )
+
+    if [ -n "$missing_command" ]; then
+        echo
+        echo "    ERROR: Missing required executables: $missing_command"
+        echo "           Please make sure you have csvkit"
+        echo "           installed correctly."
+        echo
+        exit 1
+    fi
+}
+
 while [[ $# -gt 0 ]]; do
     case $1 in
         -h|--help) print_usage; exit 0 ;;
@@ -195,6 +212,7 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+check_requirements
 check_arguments "$hostname" "$auth_database_name" "$username" \
                 "$database_name" "$collection_name" \
                 "$migration_file" "$output_js_folder"
