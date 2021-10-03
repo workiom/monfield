@@ -273,6 +273,12 @@ update_loop="
 
 let collection = db.getCollection('$collection_name')
 for (let i = 0; i < data.length; i++) {
+    if (data[i]['$query_field'] === null ||
+        data[i]['$query_field'] === '' ||
+        data[i]['$query_field'] === undefined) {
+        print('WARNING: empty query value found! ignoring...')
+        continue
+    }
 
     let update = collection.update(
         { '$query_field': { \$eq: $query_value_constructor(data[i]['$query_field']) } },
