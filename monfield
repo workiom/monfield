@@ -220,7 +220,7 @@ check_arguments "$hostname" "$auth_database_name" "$username" \
 if [ -z $dryrun ]; then
     password=$(get_database_password)
 else
-    password=password-placeholder
+    password="password-placeholder"
 fi
 
 # It's okay to use | head | here to make parsing faster because mongo keys
@@ -248,11 +248,11 @@ cat <<EOF
 
 EOF
 
-if [ ! -z $query_value_constructor ]; then
+if [[ -n $query_value_constructor ]]; then
     echo "    Query Value Constructor:   $query_value_constructor"
 fi
 
-if [ ! -z $update_value_constructor ]; then
+if [[ -n $update_value_constructor ]]; then
     echo "    Update Value Constructor:  $update_value_constructor"
 fi
 
