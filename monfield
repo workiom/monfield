@@ -280,6 +280,10 @@ for (let i = 0; i < data.length; i++) {
         { multi: true }
     );
 
+    if (update.nMatched !== 1) {
+        print(update.nMatched + ' matches found for: ' +
+              JSON.stringify(data[i]['$query_field']));
+    }
 }"
 
 sed -i '1s;^;let data = ;' "$output_js_folder/batch.js"
