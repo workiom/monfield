@@ -54,7 +54,11 @@ REQUIRED ARGUMENTS:
     --database-name ........... database in which the migration will run
     --collection-name ......... collection in which the migration will run
     --migration-file .......... CSV file that contains the field definitions
-
+    --delimiter ............... Delimiting character of the input CSV file.
+                                Will be inferred if not provided.
+    --quotechar ............... Character used to quote strings in the
+                                input CSV file.  Will be inferred if not
+                                provided.
     --output-js-folder ........ path where the JS batch scripts will be
                                 created. The scripts will be executed at
                                 the end if --dryrun was not supplied.

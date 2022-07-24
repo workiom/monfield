@@ -57,6 +57,11 @@ function print_usage () {
         --database-name ........... database in which the migration will run
         --collection-name ......... collection in which the migration will run
         --migration-file .......... CSV file that contains the field definitions
+        --delimiter ............... Delimiting character of the input CSV file.
+                                    Will be inferred if not provided.
+        --quotechar ............... Character used to quote strings in the
+                                    input CSV file.  Will be inferred if not
+                                    provided.
         --output-js-folder ........ path where the JS batch scripts will be
                                     created. The scripts will be executed at
                                     the end if --dryrun was not supplied.
@@ -205,6 +210,8 @@ while [[ $# -gt 0 ]]; do
         --database-name) database_name="$2"; shift; shift ;;
         --collection-name) collection_name="$2"; shift; shift ;;
         --migration-file) migration_file="$2"; shift; shift ;;
+        --delimiter) delimiter="$2"; shift; shift ;;
+        --quotechar) quotechar="$2"; shift; shift ;;
         --query-value-constructor) query_value_constructor="$2"; shift; shift ;;
         --update-value-constructor) update_value_constructor="$2"; shift; shift ;;
         --output-js-folder) output_js_folder="$2"; shift; shift ;;
@@ -212,6 +219,14 @@ while [[ $# -gt 0 ]]; do
         *) echo "Unknown parameter: $1"; print_usage; exit 1 ;;
     esac
 done
+
+if [[ -n $delimiter ]]; then
+        quote_and_delimiter_options+="--delimiter $delimiter "
+fi
+
+if [[ -n $quotechar ]]; then
+        quote_and_delimiter_options+="--quotechar $quotechar "
+fi
 
 check_requirements
 check_arguments "$hostname" "$auth_database_name" "$username" \
@@ -229,8 +244,10 @@ fi
 # has multiple lines, then it's already not supported on mongo's side. We
 # also have to temporarily disable pipefail when using head.
 set +o pipefail
-query_field=$(csvcut -c 1 "$migration_file" | head | csvsql --query "select * from stdin limit 0;")
-update_field=$(csvcut -c 2 "$migration_file" | head | csvsql --query "select * from stdin limit 0;")
+query_field=$(csvcut $quote_and_delimiter_options -c 1 "$migration_file" | head | \
+        csvsql $quote_and_delimiter_options --query "select * from stdin limit 0;")
+update_field=$(csvcut $quote_and_delimiter_options -c 2 "$migration_file" | head | \
+        csvsql $quote_and_delimiter_options --query "select * from stdin limit 0;")
 set -o pipefail
 
 cat <<EOF
@@ -265,7 +282,8 @@ fi
 
 mkdir -p "$output_js_folder"
 
-csvjson --snifflimit 0 --delimiter ',' --quotechar '"' "$migration_file" >> "$output_js_folder/batch.js"
+csvjson --snifflimit 0 $quote_and_delimiter_options "$migration_file" \
+        >> "$output_js_folder/batch.js"
 
 echo
 echo
