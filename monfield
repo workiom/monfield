@@ -315,8 +315,8 @@ sed -i '1s;^;let data = ;' "$output_js_folder/batch.js"
 echo "$update_loop" >> "$output_js_folder/batch.js"
 
 command="
-mongo -u $username -p $password $hostname/$database_name \
---authenticationDatabase $auth_database_name \
+mongo -u '$username' -p '$password' '$hostname/$database_name' \
+--authenticationDatabase '$auth_database_name' \
 --eval 'load(\"$output_js_folder/batch.js\")'"
 
 echo ================================================================
