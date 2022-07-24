@@ -48,14 +48,14 @@ DESCRIPTION:
 
 REQUIRED ARGUMENTS:
 
-    --hostname                  URL for the database, as host:port
-    --authentication-database   authentication database
-    --username                  username to authenticate as
-    --database-name             database in which the migration will run
-    --collection-name           collection in which the migration will run
-    --migration-file            CSV file that contains the field definitions
+    --hostname ................ URL for the database, as host:port
+    --authentication-database . authentication database
+    --username ................ username to authenticate as
+    --database-name ........... database in which the migration will run
+    --collection-name ......... collection in which the migration will run
+    --migration-file .......... CSV file that contains the field definitions
 
-    --output-js-folder          path where the JS batch scripts will be
+    --output-js-folder ........ path where the JS batch scripts will be
                                 created. The scripts will be executed at
                                 the end if --dryrun was not supplied.
                                 The folder must not exist, as it will be
@@ -64,10 +64,10 @@ REQUIRED ARGUMENTS:
 
 OPTIONS:
 
-    -h, --help                  print this help message
-    --dryrun                    print the mongo scripting calls instead
+    -h, --help ................ print this help message
+    --dryrun .................. print the mongo scripting calls instead
                                 of executing them
-    --query-value-constructor   constructor name to be called on every
+    --query-value-constructor . constructor name to be called on every
                                 query value, e.g. passing ObjectId will
                                 call ObjectId("query-value") on query
                                 values (Not passing this option means
