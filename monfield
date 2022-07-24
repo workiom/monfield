@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 # NAME: Monfield
 #
@@ -12,8 +12,7 @@
 # LICENSE: GPLv3
 #
 
-set -o errexit -o pipefail -o noclobber
-shopt -s inherit_errexit
+set -o errexit -o noclobber
 
 cat <<EOF
 
@@ -33,7 +32,7 @@ cat <<EOF
 
 EOF
 
-function print_usage () {
+print_usage () {
     cat <<EOF
 
     USAGE:
@@ -105,7 +104,7 @@ function print_usage () {
 EOF
 }
 
-function check_arguments () {
+check_arguments () {
     if [ -z "$1" ]; then
         echo "    ERROR! Missing database hostname! Aborting!"
         print_usage
@@ -156,34 +155,31 @@ function check_arguments () {
 
     if [ -d "$7" ]; then
         echo
-        echo "  ERROR: folder ($output_js_folder) already exists."
-        echo "  Please delete the folder, or specify a new path."
+        printf '%s%s%s\n%s' \
+            "  ERROR: folder (" "$output_js_folder" ") already exists." \
+            "  Please delete the folder, or specify a new path."
         print_usage
         exit 1
     fi
 }
 
-function get_database_password () {
-    read -r -p "  Enter database password: " -s password
-    echo -n "$password"
-}
-
-function confirm_operation () {
+confirm_operation () {
     echo
     echo "  !!!! WARNING !!!! THIS OPERATION CAN NOT BE REVERSED"
     echo
-    read -r -p "  Are you sure you want to continue? [y/n]: " -n 1 -r
+    printf '%s' "  Are you sure you want to continue? [y/N]: "
+    read -r confirmation
     echo
     echo
 
-    if [[ ! "$REPLY" =~ ^[Yy]$ ]]; then
+    if [ "$confirmation" != 'y' ]; then
         echo "    Operation cancled. Aborting..."
         echo
         exit 0
     fi
 }
 
-function check_requirements () {
+check_requirements () {
     missing_command=$({
          [ -x "$(command -v csvcut)" ] || echo csvcut;
          [ -x "$(command -v csvsql)" ] || echo csvsql;
@@ -193,15 +189,16 @@ function check_requirements () {
 
     if [ -n "$missing_command" ]; then
         echo
-        echo "    ERROR: Missing required executables: $missing_command"
-        echo "           Please make sure you have csvkit and"
-        echo "           mongo shell installed correctly."
+        printf '%s%s%s%s' \
+            "    ERROR: Missing required executables: " "$missing_command" \
+            "           Please make sure you have csvkit and" \
+            "           mongo shell installed correctly."
         echo
         exit 1
     fi
 }
 
-while [[ $# -gt 0 ]]; do
+while [ "$#" -gt 0 ]; do
     case $1 in
         -h|--help) print_usage; exit 0 ;;
         --hostname) hostname="$2"; shift; shift ;;
@@ -216,16 +213,16 @@ while [[ $# -gt 0 ]]; do
         --update-value-constructor) update_value_constructor="$2"; shift; shift ;;
         --output-js-folder) output_js_folder="$2"; shift; shift ;;
         --dryrun) dryrun=1; shift ;;
-        *) echo "Unknown parameter: $1"; print_usage; exit 1 ;;
+        *) printf '%s%s' "Unknown parameter: " "$1"; print_usage; exit 1 ;;
     esac
 done
 
-if [[ -n $delimiter ]]; then
-        quote_and_delimiter_options+="--delimiter $delimiter "
+if [ -n "$delimiter" ]; then
+        quote_and_delimiter_options="--delimiter $delimiter"
 fi
 
-if [[ -n $quotechar ]]; then
-        quote_and_delimiter_options+="--quotechar $quotechar "
+if [ -n "$quotechar" ]; then
+        quote_and_delimiter_options="$quote_and_delimiter_options --quotechar $quotechar"
 fi
 
 check_requirements
@@ -234,21 +231,24 @@ check_arguments "$hostname" "$auth_database_name" "$username" \
                 "$migration_file" "$output_js_folder"
 
 if [ -z $dryrun ]; then
-    password=$(get_database_password)
+    printf '%s' "  Enter database password: "
+    stty_orig=$(stty -g)
+    stty -echo
+    read -r password
+    stty "$stty_orig"
 else
     password="password-placeholder"
 fi
 
-# It's okay to use | head | here to make parsing faster because mongo keys
-# can never be multi-line in the first place. If the header of the CSV file
-# has multiple lines, then it's already not supported on mongo's side. We
-# also have to temporarily disable pipefail when using head.
-set +o pipefail
+# we want the options to be word-split here
+# shellcheck disable=SC2086
 query_field=$(csvcut $quote_and_delimiter_options -c 1 "$migration_file" | head | \
         csvsql $quote_and_delimiter_options --query "select * from stdin limit 0;")
+
+# we want the options to be word-split here
+# shellcheck disable=SC2086
 update_field=$(csvcut $quote_and_delimiter_options -c 2 "$migration_file" | head | \
         csvsql $quote_and_delimiter_options --query "select * from stdin limit 0;")
-set -o pipefail
 
 cat <<EOF
 
@@ -266,12 +266,12 @@ cat <<EOF
 
 EOF
 
-if [[ -n $query_value_constructor ]]; then
-    echo "    Query Value Constructor:   $query_value_constructor"
+if [ -n "$query_value_constructor" ]; then
+    printf '%s%s' "    Query Value Constructor:   " "$query_value_constructor"
 fi
 
-if [[ -n $update_value_constructor ]]; then
-    echo "    Update Value Constructor:  $update_value_constructor"
+if [ -n "$update_value_constructor" ]; then
+    printf '%s%s' "    Update Value Constructor:  " "$update_value_constructor"
 fi
 
 echo
@@ -282,6 +282,8 @@ fi
 
 mkdir -p "$output_js_folder"
 
+# we want the options to be word-split here
+# shellcheck disable=SC2086
 csvjson --snifflimit 0 $quote_and_delimiter_options "$migration_file" \
         >> "$output_js_folder/batch.js"
 
@@ -312,7 +314,7 @@ for (let i = 0; i < data.length; i++) {
 }"
 
 sed -i '1s;^;let data = ;' "$output_js_folder/batch.js"
-echo "$update_loop" >> "$output_js_folder/batch.js"
+printf '%s' "$update_loop" >> "$output_js_folder/batch.js"
 
 command="
 mongo -u '$username' -p '$password' '$hostname/$database_name' \
@@ -325,7 +327,7 @@ echo "    Executing Batch File: $output_js_folder/batch.js"
 echo
 if [ -z $dryrun ];
 then eval "$command"
-else echo "$command"
+else printf '%s' "$command"
 fi
 echo
 
