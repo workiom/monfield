@@ -120,7 +120,11 @@ _id,156231
 To execute this migration call monfield like:
 
 ```sh
-monfield --hostname localhost:27017 --authentication-database authdb --username admin --database-name 121 --collection-name b0a1f011-423a-46fa-3e7c-0u27b581b917 --migration-file ./updates.csv --output-js-folder ./migration --query-value-constructor ObjectId --update-value-constructor ISODate
+monfield --hostname localhost:27017 --database-name mydb \
+    --username admin --authentication-database authdb \
+    --collection-name b0a1f011-423a-46fa-3e7c-0u27b581b917 \
+    --output-js-folder ./migration --migration-file ./updates.csv \
+    --query-value-constructor ObjectId --update-value-constructor ISODate
 ```
 
 ### Update a Date Field in Records by a Text Field
@@ -142,7 +146,11 @@ Hell March 2,2010-02-01T01:01:12Z
 To execute this migration call monfield like:
 
 ```sh
-monfield --hostname localhost:27017 --authentication-database authdb --username admin --database-name 121 --collection-name b0a1f011-423a-46fa-3e7c-0u27b581b917 --migration-file ./updates.csv --output-js-folder ./migration --update-value-constructor ISODate
+monfield --hostname localhost:27017 --database-name mydb \
+    --username admin --authentication-database authdb \
+    --collection-name b0a1f011-423a-46fa-3e7c-0u27b581b917 \
+    --output-js-folder ./migration --migration-file ./updates.csv \
+    --update-value-constructor ISODate
 ```
 
 Note that unlike in the previous example, we don't specify the ObjectId
