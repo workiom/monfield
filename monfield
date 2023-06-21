@@ -230,16 +230,6 @@ check_arguments "$hostname" "$auth_database_name" "$username" \
                 "$database_name" "$collection_name" \
                 "$migration_file" "$output_js_folder"
 
-if [ -z $dryrun ]; then
-    printf '%s' "  Enter database password: "
-    stty_orig=$(stty -g)
-    stty -echo
-    read -r password
-    stty "$stty_orig"
-else
-    password="password-placeholder"
-fi
-
 # we want the options to be word-split here
 # shellcheck disable=SC2086
 query_field=$(csvcut $quote_and_delimiter_options -c 1 "$migration_file" | head | \
@@ -317,7 +307,7 @@ sed -i '1s;^;let data = ;' "$output_js_folder/batch.js"
 printf '%s' "$update_loop" >> "$output_js_folder/batch.js"
 
 command="
-mongo -u '$username' -p '$password' '$hostname/$database_name' \
+mongo -u '$username' '$hostname/$database_name' \
 --authenticationDatabase '$auth_database_name' \
 --eval 'load(\"$output_js_folder/batch.js\")'"
 
