@@ -189,10 +189,10 @@ check_requirements () {
 
     if [ -n "$missing_command" ]; then
         echo
-        printf '%s%s%s%s' \
+        printf '%s%s\n%s\n%s\n' \
             "    ERROR: Missing required executables: " "$missing_command" \
-            "           Please make sure you have csvkit and" \
-            "           mongo shell installed correctly."
+            "           Please make sure you have CSVkit and" \
+            "           MongoDB Shell installed correctly."
         echo
         exit 1
     fi
